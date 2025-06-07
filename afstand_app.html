@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Afstand tot Lijn Analyse</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    #map { height: 500px; width: 100%; margin-bottom: 1em; }
+    body { font-family: sans-serif; max-width: 800px; margin: auto; padding: 1em; }
+    label, input { display: block; margin: 0.5em 0; }
+    pre { background: #f0f0f0; padding: 1em; }
+  </style>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+  <h2>Afstand tot lijn AB - Analyse</h2>
+
+  <div>
+    <label>Punt A - Latitude: <input type="number" id="lat1" step="any" value="52.370216"></label>
+    <label>Punt A - Longitude: <input type="number" id="lng1" step="any" value="4.895168"></label>
+    <label>Punt B - Latitude: <input type="number" id="lat2" step="any" value="52.371216"></label>
+    <label>Punt B - Longitude: <input type="number" id="lng2" step="any" value="4.896168"></label>
+    <label>Punt C - Latitude: <input type="number" id="lat3" step="any" value="52.370716"></label>
+    <label>Punt C - Longitude: <input type="number" id="lng3" step="any" value="4.895668"></label>
+    <label>Safetyzone (min. 1.2 m): <input type="number" id="safety" step="any" value="1.2" min="1.2"></label>
+    <button onclick="analyze()">Bereken afstand & afwijking</button>
+  </div>
+
+  <div id="map"></div>
+  <pre id="output"></pre>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/@turf/turf@6.5.0/turf.min.js"></script>
+  <script>
+    const map = L.map('map').setView([52.370216, 4.895168], 17);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap',
+      maxZoom: 19
+    }).addTo(map);
+
+    let lineLayer, pointLayer;
+
+    function analyze() {
+      const lat1 = parseFloat(document.getElementById('lat1').value);
+      const lng1 = parseFloat(document.getElementById('lng1').value);
+      const lat2 = parseFloat(document.getElementById('lat2').value);
+      const lng2 = parseFloat(document.getElementById('lng2').value);
+      const lat3 = parseFloat(document.getElementById('lat3').value);
+      const lng3 = parseFloat(document.getElementById('lng3').value);
+      const safety = Math.max(parseFloat(document.getElementById('safety').value), 1.2);
+
+      const line = turf.lineString([[lng1, lat1], [lng2, lat2]]);
+      const ptC = turf.point([lng3, lat3]);
+
+      const fullDistance = turf.pointToLineDistance(ptC, line, {units: 'meters'});
+      const correction = safety * 2;
+      const corrected = fullDistance - correction;
+      const rounded = Math.round(corrected / 3) * 3;
+      const deviation = corrected - rounded;
+
+      const output = document.getElementById('output');
+      output.textContent = 
+        "Afstand van C tot lijn AB: " + fullDistance.toFixed(2) + " meter\n" +
+        "Na aftrek (2 × " + safety.toFixed(2) + " m): " + corrected.toFixed(2) + " meter\n" +
+        "Dichtstbijzijnde veelvoud van 3 m: " + rounded.toFixed(2) + " meter\n" +
+        "Afwijking: " + deviation.toFixed(2) + " meter";
+
+      if (lineLayer) map.removeLayer(lineLayer);
+      if (pointLayer) map.removeLayer(pointLayer);
+
+      lineLayer = L.geoJSON(line, { color: 'blue' }).addTo(map);
+      pointLayer = L.geoJSON(ptC, { color: 'red' }).addTo(map);
+
+      const bounds = L.latLngBounds([[lat1, lng1], [lat2, lng2], [lat3, lng3]]);
+      map.fitBounds(bounds.pad(0.2));
+    }
+
+    analyze(); // Run initially
+  </script>
+</body>
+</html>
